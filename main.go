@@ -8,22 +8,29 @@ import (
 	"gopkg.in/gographics/imagick.v2/imagick"
 	"net/http"
 	"os"
+	"time"
 )
 
-var saveDir *string
+var (
+	saveDir    *string
+	httpClient *http.Client
+)
 
 func main() {
+
 	err := Init()
 	if err != nil {
 		panic(errors.Wrap(err, "Error initialization"))
 	}
-	h := NewHandler(*saveDir)
+
+	h := NewHandler(*saveDir, httpClient)
 
 	r := gin.Default()
 	r.POST("/form", h.SaveFormData)
-	r.POST("/base64", h.SaveBase64Json)
-	r.POST("/link", h.SaveLink)
-	http.ListenAndServe(":58001", r)
+	r.POST("/json", h.SaveBase64Json)
+	r.GET("/link", h.SaveLink)
+	r.Run(":58001")
+
 }
 
 func Init() error {
@@ -31,11 +38,14 @@ func Init() error {
 	imagick.Initialize()
 	defer imagick.Terminate()
 
-	saveDir = flag.String("save-dir", "./", "folder for save images")
-	fmt.Printf("You selected \"%s\" directory for save images", *saveDir)
+	saveDir = flag.String("save-dir", "./upload", "folder for save images")
+	fmt.Printf("You selected \"%s\" directory for save images\n", *saveDir)
 	if _, err := os.Stat(*saveDir); os.IsNotExist(err) {
 		return errors.Wrap(err, "The selected directory does not exist")
 	}
+
+	// create http client for usage in app
+	httpClient = &http.Client{Timeout: 60 * time.Second}
 
 	return nil
 }

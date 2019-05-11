@@ -1,1 +1,2 @@
-# test_task_staply
+# Test task for Staply.co
+
