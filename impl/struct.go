@@ -1,10 +1,15 @@
-package main
+package impl
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
+	"github.com/stixlink/test_task_staply/iface"
 	"gopkg.in/gographics/imagick.v2/imagick"
+	"image"
+	_ "image/jpeg"
+	_ "image/png"
 	"io/ioutil"
 	"math/rand"
 	"net/http"
@@ -37,9 +42,9 @@ func (d *ImageDownload) DownloadImage(imageUrl *url.URL) ([]byte, error) {
 	case http.StatusOK:
 
 	case http.StatusNotFound:
-		return nil, errors.Wrapf(err, "not found image for url: \"%s\"", imageUrl.String())
+		return nil, iface.ErrorDownloadNotFound(errors.New(fmt.Sprintf("not found image for url: \"%s\"", imageUrl.String())))
 	default:
-		return nil, fmt.Errorf("wrong response code: %d", resp.StatusCode)
+		return nil, iface.ErrorDownloadWrongResponseStatus(fmt.Errorf("wrong response code: %d", resp.StatusCode))
 	}
 
 	data, err := ioutil.ReadAll(resp.Body)
@@ -90,29 +95,33 @@ func (n *NameCreator) CreateName(basePath string, ext string, prefix []string) (
 	return
 }
 
-func NewFileValidator() *ImageDataValidator {
-	return &ImageDataValidator{}
+func NewFileValidator(allowedExtension []string) *ImageDataValidator {
+	return &ImageDataValidator{AllowedExtension: allowedExtension}
 }
 
 type ImageDataValidator struct {
+	AllowedExtension []string
 }
 
+// Validate check content type in data
+// ATTENTION! if add new extension notice the validator and import library "image/*"
+// and see usage function https://golang.org/pkg/image/#DecodeConfig
 func (h *ImageDataValidator) Validate(data []byte) (result bool, err error) {
 
-	fileType := http.DetectContentType(data)
-	ct := fileType
-	if ct == "" {
-		err = errors.New(fmt.Sprintf("Unknown content type \"%s\" ", ct))
-
+	reader := bytes.NewReader(data)
+	_, format, err := image.DecodeConfig(reader)
+	if err != nil {
 		return
 	}
-	for _, t := range allowedContentType {
-		if t == ct {
+
+	for _, t := range h.AllowedExtension {
+		if t == format {
 			result = true
 		}
 	}
+
 	if !result {
-		err = errors.New(fmt.Sprintf("Not allowed content type \"%s\" ", ct))
+		err = errors.New(fmt.Sprintf("Not allowed content type \"%s\" ", format))
 	}
 
 	return
@@ -136,7 +145,7 @@ func (h *ImagickResizer) Resize(inputFile *os.File, outputFile *os.File, weight,
 
 		return errors.Wrap(err, "error read image")
 	}
-	// TODO: use smarter resize
+	// TODO: use resize more smart
 	err = mw.ResizeImage(weight, height, imagick.FILTER_UNDEFINED, 1)
 	if err != nil {
 

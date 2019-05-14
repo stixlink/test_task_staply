@@ -14,6 +14,10 @@ import (
 var (
 	saveDir    *string
 	httpClient *http.Client
+	port       string
+
+	// ATTENTION! if add new extension notice the validator and import library "image/*"
+	allowedExtensionsFile = []string{"jpeg", "jpg", "png"}
 )
 
 func main() {
@@ -29,7 +33,7 @@ func main() {
 	r.POST("/form", h.SaveFormData)
 	r.POST("/json", h.SaveBase64Json)
 	r.GET("/link", h.SaveLink)
-	r.Run(":58001")
+	r.Run(":" + port)
 
 }
 
@@ -46,6 +50,10 @@ func Init() error {
 
 	// create http client for usage in app
 	httpClient = &http.Client{Timeout: 60 * time.Second}
+	port = os.Getenv("MY_SERVER_PORT")
+	if port == "" {
+		port = "58001"
+	}
 
 	return nil
 }

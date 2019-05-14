@@ -1,0 +1,14 @@
+version: '2'
+services:
+    test_task_staply:
+        container_name: test_task_staply
+        build: .
+        command: go run main.go
+        volumes:
+            - ./src:/go/src/app
+        working_dir: /go/src/app
+        ports:
+            - "58001:58001"
+        environment:
+            MY_SERVER_PORT: 58001
+            GITHUB_TOKEN: 0801d78578c45869424182fd307b13864a6cb50a

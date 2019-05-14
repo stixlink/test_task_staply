@@ -1,10 +1,16 @@
 package iface
 
-//go:generate mockgen -package main_mocks -destination mocks/iface.go github.com/stixlink/test_task_go_staply/iface ImageResizer,ImageValidator,Namer,Downloader
+//go:generate mockgen -package main_mocks -destination mocks/iface.go github.com/stixlink/test_task_staply/iface ImageResizer,ImageValidator,Namer,Downloader
 
 import (
 	"net/url"
 	"os"
+)
+
+type
+(
+	ErrorDownloadNotFound = error
+	ErrorDownloadWrongResponseStatus = error
 )
 
 type ImageResizer interface {

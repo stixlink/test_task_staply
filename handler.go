@@ -6,8 +6,12 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
-	"github.com/stixlink/test_task_go_staply/iface"
-	"github.com/stixlink/test_task_go_staply/utility"
+	"github.com/stixlink/test_task_staply/iface"
+	"github.com/stixlink/test_task_staply/impl"
+	"github.com/stixlink/test_task_staply/utility"
+	"image"
+	_ "image/jpeg"
+	_ "image/png"
 	"io"
 	"net/http"
 	"net/url"
@@ -16,17 +20,14 @@ import (
 	"strings"
 )
 
-var (
-	allowedContentType = []string{"image/jpeg", "image/pjpeg", "image/png"}
-)
-
+// TODO: use https://github.com/spf13/afero in all project for write good tests
 func NewHandler(imageSaveDir string, client *http.Client) *UploadHandler {
 	return &UploadHandler{
 		saveDir:        imageSaveDir,
-		ImageValidator: NewFileValidator(),
-		ImageResizer:   NewImagickResizer(),
-		Downloader:     NewDownloader(client),
-		Namer:          NewNamer(),
+		ImageValidator: impl.NewFileValidator(allowedExtensionsFile),
+		ImageResizer:   impl.NewImagickResizer(),
+		Downloader:     impl.NewDownloader(client),
+		Namer:          impl.NewNamer(),
 	}
 }
 
@@ -39,7 +40,7 @@ type UploadHandler struct {
 }
 
 func (h *UploadHandler) SaveFormData(c *gin.Context) {
-	response := NewResponse(c)
+	response := impl.NewResponse(c)
 	// default max data size  32 << 20 // 32 MB
 	// for change settings set router.MaxMultipartMemory before createserver
 	// Example router.MaxMultipartMemory = N << 20  // N MiB
@@ -60,7 +61,7 @@ func (h *UploadHandler) SaveFormData(c *gin.Context) {
 	mainFilePath := filesPath[0]
 	resizedFilePath := filesPath[1]
 
-	file, err := os.OpenFile(mainFilePath, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0666)
+	file, err := os.OpenFile(mainFilePath, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0644)
 	if err != nil {
 		response.JSON(500, "", "Internal error in time open image for write")
 		return
@@ -109,16 +110,15 @@ func (h *UploadHandler) SaveFormData(c *gin.Context) {
 
 func (h *UploadHandler) SaveLink(c *gin.Context) {
 
-	response := NewResponse(c)
+	response := impl.NewResponse(c)
 	imageUrl := c.Query("image")
 	if imageUrl == "" {
-		c.Writer.WriteHeader(400)
-		c.Writer.Write([]byte("Invalid request"))
+		response.JSON(400, "", "Invalid request")
 		return
 	}
 
 	urli, err := url.Parse(imageUrl)
-	if err != nil {
+	if err != nil || urli.Scheme == "" || urli.Path == "" || urli.Host == "" {
 		response.JSON(400, "", fmt.Sprintf("Invalid value parameter \"image\". \"%s\" is not valid url", imageUrl))
 		return
 	}
@@ -139,7 +139,7 @@ func (h *UploadHandler) SaveLink(c *gin.Context) {
 		return
 	}
 
-	file, err := os.OpenFile(mainFilePath, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0666)
+	file, err := os.OpenFile(mainFilePath, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0644)
 	if err != nil {
 		response.JSON(500, "", "Error save image")
 		return
@@ -177,7 +177,8 @@ type DataImageJSON struct {
 }
 
 func (h *UploadHandler) SaveBase64Json(c *gin.Context) {
-	response := NewResponse(c)
+
+	response := impl.NewResponse(c)
 	data := &DataImageJSON{}
 	err := c.BindJSON(data)
 	if err != nil {
@@ -194,14 +195,14 @@ func (h *UploadHandler) SaveBase64Json(c *gin.Context) {
 		response.JSON(400, "", "Invalid file type or data")
 		return
 	}
-	fileType := http.DetectContentType(buff)
-	t := strings.Split(fileType, "/")
-	if len(t) < 2 {
+	reader := bytes.NewReader(buff)
+	_, ext, err := image.DecodeConfig(reader)
+	if err != nil {
 		response.JSON(400, "", "Fail get file extension")
 		return
 	}
 
-	_, filesPath := h.CreateName(h.saveDir, t[1], []string{"100x100"})
+	_, filesPath := h.CreateName(h.saveDir, ext, []string{"100x100"})
 	mainFilePath := filesPath[0]
 	resizedFilePath := filesPath[1]
 
