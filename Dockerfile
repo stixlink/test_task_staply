@@ -1,16 +1,15 @@
-FROM golang:alpine
-# specify the token in order to fetch the sources
-ARG GITHUB_TOKEN
+FROM golang:latest as builder
+COPY . $GOPATH/src/github.com/stixlink/test_task_staply/
+WORKDIR $GOPATH/src/github.com/stixlink/test_task_staply/
 
-ADD ./ /go/src/guthub.com/stixlink/test_task_staply
+RUN apt-get update
+RUN apt-get install libmagickwand-dev -y
+RUN apt-get install imagemagick -y
+#get dependancies
+RUN go get -d -v
+#build the binary
+RUN go build -o /go/bin/test_task_staply
+RUN chmod +x /go/bin/test_task_staply
 
-WORKDIR /go/src/guthub.com/stixlink/test_task_staply
+ENTRYPOINT ["/go/bin/test_task_staply"]
 
-ENV GOPATH=/go
-
-RUN apk add --no-cache --virtual .build-deps git && \
-    git config --global url."https://${GITHUB_TOKEN}:x-oauth-basic@github.com/".insteadOf "https://github.com/" && \
-    go get -u github.com/golang/dep/cmd/dep && \
-    dep ensure -v
-
-CMD ["go", "run", "*.go"]

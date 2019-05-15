@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	saveDir    *string
+	saveDir = flag.String("save-dir", "./upload", "folder for save images")
 	httpClient *http.Client
 	port       string
 
@@ -21,7 +21,6 @@ var (
 )
 
 func main() {
-
 	err := Init()
 	if err != nil {
 		panic(errors.Wrap(err, "Error initialization"))
@@ -38,11 +37,10 @@ func main() {
 }
 
 func Init() error {
-
 	imagick.Initialize()
 	defer imagick.Terminate()
 
-	saveDir = flag.String("save-dir", "./upload", "folder for save images")
+	flag.Parse()
 	fmt.Printf("You selected \"%s\" directory for save images\n", *saveDir)
 	if _, err := os.Stat(*saveDir); os.IsNotExist(err) {
 		return errors.Wrap(err, "The selected directory does not exist")
